@@ -54,9 +54,12 @@ This repo is one piece of a small public toolkit:
   validates structured model output before trusting it.
 - Context Boundary Examples checks whether an answer stays inside supplied
   evidence.
+- [Green-Spine QA Pattern](https://github.com/TheDarkniteFalls/green-spine-qa-pattern)
+  bundles the important path behind one repeatable command.
 
 Together they show a practical pattern: publish safely, leave a reviewable
-receipt, validate model output, and keep answers grounded in supplied context.
+receipt, validate model output, keep answers grounded in supplied context, and
+keep the important path healthy.
 
 ## Public Data Notice
 
