@@ -51,15 +51,18 @@ This repo is one piece of a small public toolkit:
 - [EvidenceGate](https://github.com/TheDarkniteFalls/evidencegate) records the
   evidence and checks behind an AI-assisted change.
 - [Local Model Reliability Example](https://github.com/TheDarkniteFalls/local-model-reliability-example)
-  validates structured model output before trusting it.
+  validates structured model output and protected-path boundaries before
+  trusting it.
 - Context Boundary Examples checks whether an answer stays inside supplied
   evidence.
 - [Green-Spine QA Pattern](https://github.com/TheDarkniteFalls/green-spine-qa-pattern)
   bundles the important path behind one repeatable command.
+- [Codex Project Instructions Starter](https://github.com/TheDarkniteFalls/codex-project-instructions-starter)
+  gives coding agents clear project rules before they work.
 
-Together they show a practical pattern: publish safely, leave a reviewable
-receipt, validate model output, keep answers grounded in supplied context, and
-keep the important path healthy.
+Together they show a practical pattern: publish safely, give agents clear
+project rules, leave a reviewable receipt, validate model output, keep answers
+grounded in supplied context, and keep the important path healthy.
 
 ## Public Data Notice
 
