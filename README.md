@@ -1,5 +1,17 @@
 # Context Boundary Examples
 
+<!-- toolkit-trust-card:start -->
+> **Public contract:** Stable pattern · about 5 min · Python 3 · no model · no network
+>
+> **Operation:** Read-only check; examples may use temporary files
+>
+> **A pass establishes:** Expected answers cite only allowed sources and known unsupported or uncited outputs fail.
+>
+> **It does not establish:** Grounding to supplied snippets does not establish that those snippets are true or current.
+>
+> **First check:** `python3 context_boundary_check.py --self-test`
+<!-- toolkit-trust-card:end -->
+
 A tiny, synthetic checker for assistant outputs that should stay inside supplied
 context.
 
