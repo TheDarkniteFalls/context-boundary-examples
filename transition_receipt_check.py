@@ -41,6 +41,8 @@ def validate_state(
         errors.append(f"{name}.id must be non-empty text")
     if not is_version(value.get("version")):
         errors.append(f"{name}.version must be a non-negative integer")
+    if not is_non_empty_text(value.get("digest")):
+        errors.append(f"{name}.digest must be non-empty text")
 
     evidence_ref = value.get("evidence_ref")
     if not is_non_empty_text(evidence_ref):
@@ -58,6 +60,9 @@ def validate_current_state(value: Any, evidence: set[str]) -> list[str]:
     for field in ("visible_version", "durable_version"):
         if not is_version(value.get(field)):
             errors.append(f"current_state.{field} must be a non-negative integer")
+    for field in ("visible_digest", "durable_digest"):
+        if not is_non_empty_text(value.get(field)):
+            errors.append(f"current_state.{field} must be non-empty text")
 
     evidence_ref = value.get("evidence_ref")
     if not is_non_empty_text(evidence_ref):
@@ -207,6 +212,12 @@ def validate_receipt(receipt: Any) -> list[str]:
     durable_version = (
         current_state.get("durable_version") if isinstance(current_state, dict) else None
     )
+    visible_digest = (
+        current_state.get("visible_digest") if isinstance(current_state, dict) else None
+    )
+    durable_digest = (
+        current_state.get("durable_digest") if isinstance(current_state, dict) else None
+    )
     last_version = (
         last_model_state.get("version") if isinstance(last_model_state, dict) else None
     )
@@ -260,7 +271,10 @@ def validate_receipt(receipt: Any) -> list[str]:
         if any(change.get("status") == "pending" for change in changes):
             errors.append("allow is invalid while a change is pending")
         if is_version(visible_version) and is_version(durable_version):
-            if visible_version != durable_version:
+            if (
+                visible_version != durable_version
+                or visible_digest != durable_digest
+            ):
                 errors.append("allow requires visible and durable state to agree")
         next_version = (
             next_model_state.get("version")
@@ -273,6 +287,17 @@ def validate_receipt(receipt: Any) -> list[str]:
         if is_version(next_version) and is_version(durable_version):
             if next_version != durable_version:
                 errors.append("next_model_state must use the current durable version")
+        next_digest = (
+            next_model_state.get("digest")
+            if isinstance(next_model_state, dict)
+            else None
+        )
+        if is_non_empty_text(next_digest) and is_non_empty_text(visible_digest):
+            if next_digest != visible_digest:
+                errors.append("next_model_state must use the current visible digest")
+        if is_non_empty_text(next_digest) and is_non_empty_text(durable_digest):
+            if next_digest != durable_digest:
+                errors.append("next_model_state must use the current durable digest")
         if isinstance(next_model_state, dict) and isinstance(current_state, dict):
             if next_model_state.get("evidence_ref") != current_state.get("evidence_ref"):
                 errors.append("next_model_state must use current_state evidence")
@@ -296,7 +321,14 @@ def validate_receipt(receipt: Any) -> list[str]:
         mismatch = (
             is_version(visible_version)
             and is_version(durable_version)
-            and visible_version != durable_version
+            and (
+                visible_version != durable_version
+                or (
+                    is_non_empty_text(visible_digest)
+                    and is_non_empty_text(durable_digest)
+                    and visible_digest != durable_digest
+                )
+            )
         )
         pending = any(change.get("status") == "pending" for change in changes)
         if not mismatch and not pending:
@@ -369,17 +401,21 @@ def self_test() -> None:
         "last_model_state": {
             "id": "state-1",
             "version": 1,
+            "digest": "sha256:state-1",
             "evidence_ref": "state:1",
         },
         "changes": [],
         "current_state": {
             "visible_version": 1,
             "durable_version": 1,
+            "visible_digest": "sha256:state-1",
+            "durable_digest": "sha256:state-1",
             "evidence_ref": "state:1",
         },
         "next_model_state": {
             "id": "state-1",
             "version": 1,
+            "digest": "sha256:state-1",
             "evidence_ref": "state:1",
         },
         "decision": "allow",
@@ -401,8 +437,14 @@ def self_test() -> None:
     ]
     pending["evidence"].append("event:1")
 
+    digest_mismatch = json.loads(json.dumps(valid))
+    digest_mismatch["current_state"]["visible_digest"] = "sha256:visible"
+
     assert validate_receipt(valid) == []
     assert "allow is invalid while a change is pending" in validate_receipt(pending)
+    assert "allow requires visible and durable state to agree" in validate_receipt(
+        digest_mismatch
+    )
 
 
 def main() -> int:

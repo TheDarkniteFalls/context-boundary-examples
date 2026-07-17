@@ -59,6 +59,7 @@ PASS invalid_block_without_boundary
 PASS valid_tool_result_then_late_user_input
 PASS invalid_allow_pending_late_user_input
 PASS invalid_out_of_order_changes
+PASS invalid_allow_equal_version_digest_mismatch
 ```
 
 ## Supplied-Evidence Output Contract
@@ -80,8 +81,9 @@ state, intervening changes and their provenance, visible and durable state,
 the proposed next state, and an `allow`, `repair`, or `block` decision.
 
 The checker rejects stale continuation, unresolved changes, missing provenance,
-out-of-order events, silent loss of user input, and visible/durable state
-mismatches presented as safe. It accepts honest repair and block outcomes.
+out-of-order events, silent loss of user input, and visible/durable version or
+content mismatches presented as safe. It accepts honest repair and block
+outcomes.
 
 The [OpenAI Agents Python #2671 application note](applications/openai-agents-python-2671.md)
 maps this generic contract to one current open-source lifecycle problem without
