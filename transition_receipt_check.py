@@ -41,8 +41,10 @@ def validate_state(
         errors.append(f"{name}.id must be non-empty text")
     if not is_version(value.get("version")):
         errors.append(f"{name}.version must be a non-negative integer")
-    if not is_non_empty_text(value.get("digest")):
-        errors.append(f"{name}.digest must be non-empty text")
+    if "content_fingerprint" in value and not is_non_empty_text(
+        value.get("content_fingerprint")
+    ):
+        errors.append(f"{name}.content_fingerprint must be non-empty text when supplied")
 
     evidence_ref = value.get("evidence_ref")
     if not is_non_empty_text(evidence_ref):
@@ -60,9 +62,9 @@ def validate_current_state(value: Any, evidence: set[str]) -> list[str]:
     for field in ("visible_version", "durable_version"):
         if not is_version(value.get(field)):
             errors.append(f"current_state.{field} must be a non-negative integer")
-    for field in ("visible_digest", "durable_digest"):
-        if not is_non_empty_text(value.get(field)):
-            errors.append(f"current_state.{field} must be non-empty text")
+    for field in ("visible_fingerprint", "durable_fingerprint"):
+        if field in value and not is_non_empty_text(value.get(field)):
+            errors.append(f"current_state.{field} must be non-empty text when supplied")
 
     evidence_ref = value.get("evidence_ref")
     if not is_non_empty_text(evidence_ref):
@@ -212,11 +214,15 @@ def validate_receipt(receipt: Any) -> list[str]:
     durable_version = (
         current_state.get("durable_version") if isinstance(current_state, dict) else None
     )
-    visible_digest = (
-        current_state.get("visible_digest") if isinstance(current_state, dict) else None
+    visible_fingerprint = (
+        current_state.get("visible_fingerprint")
+        if isinstance(current_state, dict)
+        else None
     )
-    durable_digest = (
-        current_state.get("durable_digest") if isinstance(current_state, dict) else None
+    durable_fingerprint = (
+        current_state.get("durable_fingerprint")
+        if isinstance(current_state, dict)
+        else None
     )
     last_version = (
         last_model_state.get("version") if isinstance(last_model_state, dict) else None
@@ -271,10 +277,7 @@ def validate_receipt(receipt: Any) -> list[str]:
         if any(change.get("status") == "pending" for change in changes):
             errors.append("allow is invalid while a change is pending")
         if is_version(visible_version) and is_version(durable_version):
-            if (
-                visible_version != durable_version
-                or visible_digest != durable_digest
-            ):
+            if visible_version != durable_version:
                 errors.append("allow requires visible and durable state to agree")
         next_version = (
             next_model_state.get("version")
@@ -287,17 +290,26 @@ def validate_receipt(receipt: Any) -> list[str]:
         if is_version(next_version) and is_version(durable_version):
             if next_version != durable_version:
                 errors.append("next_model_state must use the current durable version")
-        next_digest = (
-            next_model_state.get("digest")
+        next_fingerprint = (
+            next_model_state.get("content_fingerprint")
             if isinstance(next_model_state, dict)
             else None
         )
-        if is_non_empty_text(next_digest) and is_non_empty_text(visible_digest):
-            if next_digest != visible_digest:
-                errors.append("next_model_state must use the current visible digest")
-        if is_non_empty_text(next_digest) and is_non_empty_text(durable_digest):
-            if next_digest != durable_digest:
-                errors.append("next_model_state must use the current durable digest")
+        fingerprints_supplied = [
+            is_non_empty_text(visible_fingerprint),
+            is_non_empty_text(durable_fingerprint),
+            is_non_empty_text(next_fingerprint),
+        ]
+        if any(fingerprints_supplied) and not all(fingerprints_supplied):
+            errors.append(
+                "allow fingerprints must include visible, durable, and next model state"
+            )
+        elif all(fingerprints_supplied) and len(
+            {visible_fingerprint, durable_fingerprint, next_fingerprint}
+        ) != 1:
+            errors.append(
+                "allow requires visible, durable, and next fingerprints to agree"
+            )
         if isinstance(next_model_state, dict) and isinstance(current_state, dict):
             if next_model_state.get("evidence_ref") != current_state.get("evidence_ref"):
                 errors.append("next_model_state must use current_state evidence")
@@ -318,15 +330,22 @@ def validate_receipt(receipt: Any) -> list[str]:
     elif decision in {"repair", "block"}:
         if next_model_state is not None:
             errors.append(f"next_model_state must be null when decision is {decision}")
+        current_fingerprints_supplied = [
+            is_non_empty_text(visible_fingerprint),
+            is_non_empty_text(durable_fingerprint),
+        ]
+        if any(current_fingerprints_supplied) and not all(
+            current_fingerprints_supplied
+        ):
+            errors.append("current_state fingerprints must be supplied together")
         mismatch = (
             is_version(visible_version)
             and is_version(durable_version)
             and (
                 visible_version != durable_version
                 or (
-                    is_non_empty_text(visible_digest)
-                    and is_non_empty_text(durable_digest)
-                    and visible_digest != durable_digest
+                    all(current_fingerprints_supplied)
+                    and visible_fingerprint != durable_fingerprint
                 )
             )
         )
@@ -401,21 +420,17 @@ def self_test() -> None:
         "last_model_state": {
             "id": "state-1",
             "version": 1,
-            "digest": "sha256:state-1",
             "evidence_ref": "state:1",
         },
         "changes": [],
         "current_state": {
             "visible_version": 1,
             "durable_version": 1,
-            "visible_digest": "sha256:state-1",
-            "durable_digest": "sha256:state-1",
             "evidence_ref": "state:1",
         },
         "next_model_state": {
             "id": "state-1",
             "version": 1,
-            "digest": "sha256:state-1",
             "evidence_ref": "state:1",
         },
         "decision": "allow",
@@ -437,13 +452,27 @@ def self_test() -> None:
     ]
     pending["evidence"].append("event:1")
 
-    digest_mismatch = json.loads(json.dumps(valid))
-    digest_mismatch["current_state"]["visible_digest"] = "sha256:visible"
+    matching_fingerprints = json.loads(json.dumps(valid))
+    matching_fingerprints["current_state"]["visible_fingerprint"] = "fingerprint:1"
+    matching_fingerprints["current_state"]["durable_fingerprint"] = "fingerprint:1"
+    matching_fingerprints["next_model_state"]["content_fingerprint"] = "fingerprint:1"
+
+    fingerprint_mismatch = json.loads(json.dumps(matching_fingerprints))
+    fingerprint_mismatch["current_state"]["visible_fingerprint"] = "fingerprint:visible"
+
+    partial_fingerprints = json.loads(json.dumps(matching_fingerprints))
+    del partial_fingerprints["next_model_state"]["content_fingerprint"]
 
     assert validate_receipt(valid) == []
+    assert validate_receipt(matching_fingerprints) == []
     assert "allow is invalid while a change is pending" in validate_receipt(pending)
-    assert "allow requires visible and durable state to agree" in validate_receipt(
-        digest_mismatch
+    assert (
+        "allow requires visible, durable, and next fingerprints to agree"
+        in validate_receipt(fingerprint_mismatch)
+    )
+    assert (
+        "allow fingerprints must include visible, durable, and next model state"
+        in validate_receipt(partial_fingerprints)
     )
 
 
