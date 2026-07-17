@@ -14,4 +14,6 @@ jobs:
           python-version: "3.x"
       - run: python3 context_boundary_check.py --self-test
       - run: python3 context_boundary_check.py examples/context_outputs.jsonl
-      - run: python3 -m py_compile context_boundary_check.py
+      - run: python3 transition_receipt_check.py --self-test
+      - run: python3 transition_receipt_check.py examples/transition_receipts.jsonl
+      - run: python3 -m py_compile context_boundary_check.py transition_receipt_check.py

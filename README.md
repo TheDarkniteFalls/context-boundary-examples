@@ -12,25 +12,29 @@
 > **First check:** `python3 context_boundary_check.py --self-test`
 <!-- toolkit-trust-card:end -->
 
-A tiny, synthetic checker for assistant outputs that should stay inside supplied
-context.
+A tiny set of synthetic checks for assistant outputs and agent state transitions
+that should stay inside supplied context.
 
-The demo does not call a model. It reads sample outputs, checks whether the
-answer/refusal mode matches the available evidence, and verifies citations
-against the supplied source IDs. This keeps the example deterministic and
-public-safe.
+The demos do not call a model. One checks whether an answer/refusal mode matches
+the available evidence and verifies citations against supplied source IDs. The
+other checks whether an agent can safely continue after user input, tool
+results, external state, or compaction changes its context. Both are
+deterministic and public-safe.
 
 ## Why It Exists
 
 AI assistants should not answer from memory when a workflow asks them to use
-only supplied evidence. This repo shows a small boundary: answer with citations
-when required evidence is present, and refuse when it is missing.
+only supplied evidence. They also should not continue from stale state after
+their context changes. This repo shows both boundaries with small structural
+checks.
 
 ## Run
 
 ```sh
 python3 context_boundary_check.py examples/context_outputs.jsonl
 python3 context_boundary_check.py --self-test
+python3 transition_receipt_check.py examples/transition_receipts.jsonl
+python3 transition_receipt_check.py --self-test
 ```
 
 Expected result:
@@ -41,9 +45,27 @@ PASS valid_missing_evidence_refusal
 PASS invalid_answers_without_evidence
 PASS invalid_missing_required_citation
 PASS invalid_unknown_citation
+PASS valid_no_change_allow
+PASS valid_reconciled_user_input
+PASS valid_completed_compaction
+PASS valid_block_unresolved_tool_side_effect
+PASS valid_repair_visible_durable_mismatch
+PASS valid_superseded_external_state
+PASS invalid_stale_resume
+PASS invalid_missing_provenance
+PASS invalid_allow_pending_compaction
+PASS invalid_superseded_user_input
+PASS invalid_block_without_boundary
+PASS valid_tool_result_then_late_user_input
+PASS invalid_allow_pending_late_user_input
+PASS invalid_out_of_order_changes
+PASS valid_allow_matching_fingerprints
+PASS invalid_allow_equal_version_fingerprint_mismatch
+PASS invalid_allow_partial_fingerprints
+PASS valid_repair_equal_version_fingerprint_mismatch
 ```
 
-## Output Contract
+## Supplied-Evidence Output Contract
 
 Each sample `model_output` must be JSON with:
 
@@ -53,6 +75,23 @@ Each sample `model_output` must be JSON with:
 
 Each fixture case declares whether evidence is available and which citations are
 required. The checker treats mismatches as boundary failures.
+
+## State-Transition Contract
+
+[`TRANSITION_RECEIPT.md`](TRANSITION_RECEIPT.md) defines a compact receipt for
+the boundary between one model call and the next. It records the last model
+state, intervening changes and their provenance, visible and durable state,
+the proposed next state, and an `allow`, `repair`, or `block` decision.
+
+The checker rejects stale continuation, unresolved changes, missing provenance,
+out-of-order events, silent loss of user input, and visible/durable mismatches
+presented as safe. Optional producer-supplied content fingerprints can detect
+divergent content behind equal versions. The checker accepts honest repair and
+block outcomes.
+
+The [OpenAI Agents Python #2671 application note](applications/openai-agents-python-2671.md)
+maps this generic contract to one current open-source lifecycle problem without
+claiming that the local checker is an SDK implementation.
 
 ## How These Fit Together
 
@@ -66,7 +105,7 @@ This repo is one piece of a small public toolkit:
   validates structured model output and protected-path boundaries before
   trusting it.
 - Context Boundary Examples checks whether an answer stays inside supplied
-  evidence.
+  evidence and whether an agent continues from reconciled state.
 - [Green-Spine QA Pattern](https://github.com/TheDarkniteFalls/green-spine-qa-pattern)
   bundles the important path behind one repeatable command.
 - [Codex Project Instructions Starter](https://github.com/TheDarkniteFalls/codex-project-instructions-starter)
@@ -83,14 +122,17 @@ connector exports, credentials, or personal data.
 
 ## Scope
 
-This is a structural boundary check, not a truth engine. It proves the output
-uses the expected answer/refusal and citation shape. Human review still decides
-whether the answer is actually correct.
+These are structural boundary checks, not a truth engine or runtime monitor.
+They prove that supplied outputs and transition receipts have an internally
+consistent shape. Human review and integration tests still decide whether the
+answer, event record, and persisted state are actually correct.
 
 ## Quality Checks
 
 ```sh
 python3 context_boundary_check.py --self-test
 python3 context_boundary_check.py examples/context_outputs.jsonl
-python3 -m py_compile context_boundary_check.py
+python3 transition_receipt_check.py --self-test
+python3 transition_receipt_check.py examples/transition_receipts.jsonl
+python3 -m py_compile context_boundary_check.py transition_receipt_check.py
 ```
