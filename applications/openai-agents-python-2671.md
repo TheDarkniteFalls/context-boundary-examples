@@ -1,6 +1,6 @@
 # OpenAI Agents Python #2671: Residual-Gap Note
 
-Status: local application and conformance proposal; not posted upstream.
+Status: public application note; bounded proposal posted upstream on 2026-07-17.
 
 Audit date: 2026-07-17. Source snapshot:
 [`965335aba6f6c71500e0b8cdb4e9e495f5801d4d`](https://github.com/openai/openai-agents-python/tree/965335aba6f6c71500e0b8cdb4e9e495f5801d4d).
@@ -69,24 +69,17 @@ does not select among them. The conformance cases are the portable contribution;
 the maintainers can choose the smallest API consistent with the SDK's state,
 session, tracing, and guardrail models.
 
-## Draft Upstream Comment
+## Posted Upstream Comment
 
-The following is prepared for maintainer feedback, but has not been posted:
+The maintainer question is live at
+[issuecomment-5002979430](https://github.com/openai/openai-agents-python/issues/2671#issuecomment-5002979430):
 
-> I audited current `main` at `965335a` before sketching a contribution. The
-> SDK now appears to cover graceful stop-after-turn, stream draining, `RunState`
-> snapshots, and session compaction. The soft-cancel tests do not yet appear to
-> exercise `after_turn` -> `to_state()` -> resume. Beyond that, the narrower
-> remaining gap seems to be a supported way to add late user input or other
-> reconciled host state to the stopped run before its next model call. That also
-> needs an explicit decision about re-running input guardrails for the injected
-> content.
->
-> Would a test-first PR be useful if it defined these cases: tool result plus
-> late input appears once and in order; compaction completes before resume; a
-> failed guardrail prevents the next model request; and completed tool calls are
-> not replayed? I would leave the public API shape open until those semantics are
-> agreed.
+It records the audited source snapshot and asks whether a test-first pull
+request would be useful for four behaviors: ordered tool result plus late user
+input, compaction before resume, guardrail failure before the next model call,
+and no replay of completed tool calls. It deliberately leaves the public API
+shape open.
 
-Posting this comment or opening an upstream pull request is a separate remote
-action and should happen only after a fresh source check and explicit approval.
+No upstream implementation or pull request should begin unless maintainers
+confirm that this contribution shape is useful or redirect it to a smaller
+agreed slice.
