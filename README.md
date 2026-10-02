@@ -1,34 +1,18 @@
 # Context Boundary Examples
 
-<!-- toolkit-trust-card:start -->
-> **Public contract:** Stable pattern · about 5 min · Python 3 · no model · no network
->
-> **Operation:** Read-only check; examples may use temporary files
->
-> **A pass establishes:** Expected answers cite only allowed sources and known unsupported or uncited outputs fail.
->
-> **It does not establish:** Grounding to supplied snippets does not establish that those snippets are true or current.
->
-> **First check:** `python3 context_boundary_check.py --self-test`
-<!-- toolkit-trust-card:end -->
+Check two common problems: an answer cites information it was not given, or an
+agent continues from a version of the conversation that is no longer current.
+These small Python examples use synthetic records, so you can try the checks
+without calling a model or a network service.
 
-A tiny set of synthetic checks for assistant outputs and agent state transitions
-that should stay inside supplied context.
+The first checker compares an answer’s citations and refusal mode with the
+supplied evidence. The second checks a record of changes between model calls,
+including new user input, tool results and saved state. They check the records
+you provide; they do not monitor a running agent.
 
-The demos do not call a model. One checks whether an answer/refusal mode matches
-the available evidence and verifies citations against supplied source IDs. The
-other checks whether an agent can safely continue after user input, tool
-results, external state, or compaction changes its context. Both are
-deterministic and public-safe.
+## Try The Examples
 
-## Why It Exists
-
-AI assistants should not answer from memory when a workflow asks them to use
-only supplied evidence. They also should not continue from stale state after
-their context changes. This repo shows both boundaries with small structural
-checks.
-
-## Run
+You need Python 3. Run these commands from the repository root:
 
 ```sh
 python3 context_boundary_check.py examples/context_outputs.jsonl
@@ -65,7 +49,26 @@ PASS invalid_allow_partial_fingerprints
 PASS valid_repair_equal_version_fingerprint_mismatch
 ```
 
-## Supplied-Evidence Output Contract
+`PASS invalid_unknown_citation` means the checker correctly rejected that
+invalid example. It does not mean the answer was accepted. Likewise, an
+expected `repair` or `block` decision can pass the transition check: stopping
+can be the correct result.
+
+<!-- toolkit-trust-card:placement -->
+
+<!-- toolkit-trust-card:start -->
+> **Public contract:** Stable pattern · about 5 min · Python 3 · no model · no network
+>
+> **Operation:** Read-only check; examples may use temporary files
+>
+> **A pass establishes:** Expected answers cite only allowed sources and known unsupported or uncited outputs fail.
+>
+> **It does not establish:** Grounding to supplied snippets does not establish that those snippets are true or current.
+>
+> **First check:** `python3 context_boundary_check.py --self-test`
+<!-- toolkit-trust-card:end -->
+
+## What The Answer Check Requires
 
 Each sample `model_output` must be JSON with:
 
@@ -76,12 +79,13 @@ Each sample `model_output` must be JSON with:
 Each fixture case declares whether evidence is available and which citations are
 required. The checker treats mismatches as boundary failures.
 
-## State-Transition Contract
+## Check The State Before Continuing
 
 [`TRANSITION_RECEIPT.md`](TRANSITION_RECEIPT.md) defines a compact receipt for
-the boundary between one model call and the next. It records the last model
-state, intervening changes and their provenance, visible and durable state,
-the proposed next state, and an `allow`, `repair`, or `block` decision.
+the boundary between one model call and the next. A receipt is a record of
+what changed, where each change came from, and whether the state visible to
+the agent agrees with the state saved for later use. It also records the last
+model state, the proposed next state, and an `allow`, `repair`, or `block` decision.
 
 The checker rejects stale continuation, unresolved changes, missing provenance,
 out-of-order events, silent loss of user input, and visible/durable mismatches
@@ -90,12 +94,13 @@ divergent content behind equal versions. The checker accepts honest repair and
 block outcomes.
 
 The [OpenAI Agents Python #2671 application note](applications/openai-agents-python-2671.md)
-maps this generic contract to one current open-source lifecycle problem without
-claiming that the local checker is an SDK implementation.
+maps this contract to a lifecycle problem at its dated source snapshot. It is
+a historical application note, not evidence of current SDK behavior or an SDK
+implementation.
 
-## How These Fit Together
+## Related Tools
 
-This repo is one piece of a small public toolkit:
+For other parts of an AI-assisted workflow, these examples cover related checks:
 
 - [Public Repo Safety Kit](https://github.com/TheDarkniteFalls/public-repo-safety-kit)
   checks a public-candidate repo before publishing.
@@ -104,23 +109,17 @@ This repo is one piece of a small public toolkit:
 - [Local Model Reliability Example](https://github.com/TheDarkniteFalls/local-model-reliability-example)
   validates structured model output and protected-path boundaries before
   trusting it.
-- Context Boundary Examples checks whether an answer stays inside supplied
-  evidence and whether an agent continues from reconciled state.
 - [Green-Spine QA Pattern](https://github.com/TheDarkniteFalls/green-spine-qa-pattern)
-  bundles the important path behind one repeatable command.
+  puts checks for an important workflow behind one repeatable command.
 - [Codex Project Instructions Starter](https://github.com/TheDarkniteFalls/codex-project-instructions-starter)
   gives coding agents clear project rules before they work.
-
-Together they show a practical pattern: publish safely, give agents clear
-project rules, leave a reviewable receipt, validate model output, keep answers
-grounded in supplied context, and keep the important path healthy.
 
 ## Public Data Notice
 
 All examples are synthetic. Do not add private prompts, real assistant logs,
 connector exports, credentials, or personal data.
 
-## Scope
+## What These Examples Show
 
 These are structural boundary checks, not a truth engine or runtime monitor.
 They prove that supplied outputs and transition receipts have an internally
