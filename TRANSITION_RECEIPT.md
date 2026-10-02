@@ -5,11 +5,16 @@ A transition receipt is a small record that answers one question:
 > Is the state proposed for the next model call still authoritative after
 > everything that changed since the previous call?
 
-This matters when user input, tool results, external state, or context
-compaction can arrive while an agent run is still active. A transcript can be
-well-formed while already being stale.
+For example, a tool finishes and the user adds a correction before the next
+model call. The next call needs both changes. A transcript can look valid
+while still missing one of them. This also matters when external state changes
+or the conversation is compacted (shortened to fit the available context).
 
-## Receipt Shape
+Run the transition examples from the README, then compare the result with the
+receipt below. A passing check means the recorded decision fits the supplied
+state and changes; it does not verify a live runtime.
+
+## Read The Receipt
 
 The synthetic examples in this repository use these fields:
 
@@ -31,16 +36,16 @@ Each change records:
 - `applied_to_version`, when applied;
 - `superseded_by`, when deliberately replaced by another recorded change.
 
-## Decisions
+## What The Decisions Mean
 
 - `allow`: every relevant change is reconciled and the next call will use the
   current visible and durable state.
 - `repair`: continuation must wait while state is reconciled or made durable.
 - `block`: continuation is unsafe without a new decision or external action.
 
-## Invariants
+## Rules The Checker Applies
 
-The checker enforces a deliberately small boundary:
+The checker applies these rules to the supplied record:
 
 1. Every state and change has evidence identity.
 2. Every change has explicit order, provenance, and status.
@@ -110,7 +115,7 @@ The checker only compares producer-supplied identifiers such as
 algorithm, or authenticate the claim. A real integration must define its own
 canonical state representation and fingerprint production boundary.
 
-## What A Pass Establishes
+## What A Pass Shows
 
 A pass establishes that the supplied receipt is structurally complete and its
 decision is consistent with the recorded versions, optional content
